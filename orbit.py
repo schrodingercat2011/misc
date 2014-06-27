@@ -1,0 +1,99 @@
+"""
+A program that generates orbits of random particles and plots them using matplot3d. You can specify the number of particles in this simulation by the first argument and the mass of the center object (~100~500) by the second. Standard call: python orbit.py [number of particles] [mass of center object]
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import mpl_toolkits.mplot3d.axes3d as p3
+import matplotlib.animation as animation
+import sys
+
+def Gen_Orbits(length, dims=3, particles=3) :
+    
+    """
+    Create orbits using Euler method
+    length is the number of points for the line.
+    dims is the number of dimensions the line has.
+    """
+    
+    lineData = np.empty((particles, dims, length))
+    velocity = np.empty((particles, dims, length))
+    lineData[:, :, 0] = np.random.rand(particles, dims)*20-10
+    velocity[:, :, 0] = np.random.rand(particles, dims)*20-10
+    #velocity[:,:,0]=np.empty((particles, dims))
+    m = np.random.rand(particles)*30
+    m[0] = 100
+    if len(sys.argv) > 2:
+        m[0] = int(sys.argv[2])
+    velocity[0, :, 0] = [0,0,0]
+    t=0.001
+    
+    for index in range(1, length) :
+        step = determine_step(lineData[:, :, index-1],m)/10000
+	velocity[:, :, index] = velocity[:,:,index-1] + step
+        lineData[:, :, index] = lineData[:, :, index-1] + velocity[:, :, index-1]*t + (step[:,:]**2)/2*t**2
+    return lineData
+
+def determine_step(lineData,m):
+    step = np.empty((np.size(lineData,0),np.size(lineData,1)))
+    particles = np.arange(np.size(lineData,0))
+    x = lineData[:,0]
+    y = lineData[:,1]
+    z = lineData[:,2]
+
+    for p1 in particles:
+	for p2 in particles:
+		if (p1 == 0):
+			step[p1,:] = [0, 0, 0]
+			continue		
+		if (p1==p2):
+			continue
+		dx = (x[p2]-x[p1])
+		dy = (y[p2]-y[p1])
+		dz = (z[p2]-z[p1])
+		r=(dx**2+dy**2+dz**2)**(1/2)
+		f=m[p1]*m[p2]/r**2
+		step[p1,:] = step[p1,:] + f*np.array([dx,dy,dz])/r/m[p1]
+    return step
+
+def update_lines(num, dataLines, lines) :
+    for line, data in zip(lines, dataLines) :
+        # NOTE: there is no .set_data() for 3 dim data...
+        line.set_data(data[0:2, :num])
+        line.set_3d_properties(data[2,:num])
+    return lines
+
+# Attaching 3D axis to the figure
+fig = plt.figure()
+ax = p3.Axes3D(fig)
+
+# Calculating the data
+N_PARTICLES = 3
+if len(sys.argv) > 1:
+    N_PARTICLES = int(sys.argv[1])
+data = Gen_Orbits(10000, 3, N_PARTICLES)
+# Reducing plotting data by 10
+rdata = np.empty((N_PARTICLES, 3, 1000))
+for i in range(0,10000,10):
+    rdata[:,:,i/10] = data[:,:,i]
+
+# Creating fifty line objects.
+# NOTE: Can't pass empty arrays into 3d version of plot()
+lines = [ax.plot(dat[0, 0:1], dat[1, 0:1], dat[2, 0:1])[0] for dat in rdata]
+
+# Setting the axes properties
+ax.set_xlim3d([-30.0, 30.0])
+ax.set_xlabel('X')
+
+ax.set_ylim3d([-30.0, 30.0])
+ax.set_ylabel('Y')
+
+ax.set_zlim3d([-30.0, 30.0])
+ax.set_zlabel('Z')
+
+ax.set_title('Orbits')
+
+# Creating the Animation object
+line_ani = animation.FuncAnimation(fig, update_lines, 1000, fargs=(rdata, lines),
+                              interval=10, blit=False)
+
+plt.show()
